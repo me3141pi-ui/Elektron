@@ -3,6 +3,9 @@ from . import charge
 import matplotlib.pyplot as plt
 import math
 
+#NOTE : For each function the length paramater ensures that the longest vector in the vector set to be plotted is scaled down to 1 unit
+#the 1 unit is as per the default setting which axis.quiver() takes
+
 class piqSpace:
     def __init__(self, k=9 * (10 ** 9), c=3 * (10 ** 8)):
         self.charges = [] #list for holding the charges in the piqSpace
@@ -111,8 +114,14 @@ class piqSpace:
         if 'cmap' in kwargs:
             try:
                 colors = getattr(plt.cm, kwargs['cmap'])(normalization(E_mag))
+                sm = plt.cm.ScalarMappable(cmap=kwargs['cmap'], norm=normalization);
+                sm.set_array(E_mag)
+                fig.colorbar(sm, ax=axis, shrink=0.7, label="|E| magnitude")
             except:
                 colors = plt.cm.plasma(normalization(E_mag))
+                sm = plt.cm.ScalarMappable(cmap='plasma', norm=normalization);
+                sm.set_array(E_mag)
+                fig.colorbar(sm, ax=axis, shrink=0.7, label="|E| magnitude")
         else:
             colors = 'black'
 
@@ -128,6 +137,10 @@ class piqSpace:
             else:
                 scale = 100
             for charge in self.charges:
+                if not (boundary_x[0]<= charge.position[0]<=boundary_x[1] and
+                        boundary_y[0]<= charge.position[1]<=boundary_y[1] and
+                        boundary_z[0]<= charge.position[2]<=boundary_z[1]):
+                    continue
                 Xq.append(charge.position[0]),Yq.append(charge.position[1]),Zq.append(charge.position[2])
                 colorQ.append('red' if charge.charge>=0 else 'blue')
                 sizes.append(np.abs(np.abs(charge.charge)*scale))
@@ -195,12 +208,20 @@ class piqSpace:
         if 'cmap' in kwargs:
             try:
                 colors = getattr(plt.cm, kwargs['cmap'])(normalization(B_mag))
+                sm = plt.cm.ScalarMappable(cmap=kwargs['cmap'], norm=normalization);
+                sm.set_array(B_mag)
+                fig.colorbar(sm, ax=axis, shrink=0.7, label="|B| magnitude")
             except:
                 colors = plt.cm.plasma(normalization(B_mag))
+                sm = plt.cm.ScalarMappable(cmap='plasma', norm=norm);
+                sm.set_array(B_mag)
+                fig.colorbar(sm, ax=axis, shrink=0.7, label="|B| magnitude")
+
+            
         else:
             colors = 'black'
 
-        if 'length' in kwargs and type(kwargs['length']) == float:
+        if 'length' in kwargs and type(kwargs['length']) in [float, int]:
             l = kwargs['length']/B_mag.max()
         else:
             l = 1/B_mag.max()
@@ -213,6 +234,10 @@ class piqSpace:
             else:
                 scale = 100
             for charge in self.charges:
+                if not (boundary_x[0]<= charge.position[0]<=boundary_x[1] and
+                        boundary_y[0]<= charge.position[1]<=boundary_y[1] and
+                        boundary_z[0]<= charge.position[2]<=boundary_z[1]):
+                    continue
                 Xq.append(charge.position[0]),Yq.append(charge.position[1]),Zq.append(charge.position[2])
                 colorQ.append('red' if charge.charge>=0 else 'blue')
                 sizes.append(np.abs(np.abs(charge.charge)*scale))
@@ -221,4 +246,70 @@ class piqSpace:
 
     def esVisual2d(self, boundary_1=(-10, 10), boundary_2=(-10, 10), num=(10, 10), parallel_plane='xy', slice_plane=0,
                    **kwargs):
-        ...
+        if parallel_plane == 'xy':
+            xs, ys, zs = np.linspace(*boundary_1, num[0]), np.linspace(*boundary_2, num[1]), slice_plane
+            X, Y = np.meshgrid(xs, ys)
+            Ex, Ey = 0, 0
+            for charge in self.charges:
+                rx, ry, rz = charge.position
+                Xd, Yd, Zd = X - rx, Y - ry, zs - rz
+                r2 = Xd ** 2 + Yd ** 2 + Zd ** 2;
+                r2[r2 == 0] = np.inf
+                Ex += self.k * charge.charge * Xd / r2 ** 1.5
+                Ey += self.k * charge.charge * Yd / r2 ** 1.5
+            Exf, Eyf, Xf, Yf = Ex.ravel(), Ey.ravel(), X.ravel(), Y.ravel()
+            E_mag = (Exf ** 2 + Eyf ** 2) ** 0.5
+
+        elif parallel_plane == 'yz':
+            ys, zs, xs = np.linspace(*boundary_2, num[1]), np.linspace(*boundary_1, num[0]), slice_plane
+            Y, Z = np.meshgrid(ys, zs)
+            Ey, Ez = 0, 0
+            for charge in self.charges:
+                rx, ry, rz = charge.position
+                Xd, Yd, Zd = xs - rx, Y - ry, Z - rz
+                r2 = Xd ** 2 + Yd ** 2 + Zd ** 2;
+                r2[r2 == 0] = np.inf
+                Ey += self.k * charge.charge * Yd / r2 ** 1.5
+                Ez += self.k * charge.charge * Zd / r2 ** 1.5
+            Exf, Eyf, Xf, Yf = Ey.ravel(), Ez.ravel(), Y.ravel(), Z.ravel()
+            E_mag = (Exf ** 2 + Eyf ** 2) ** 0.5
+        elif parallel_plane == 'zx':
+            xs, ys, zs = np.linspace(*boundary_1, num[0]), np.linspace(*boundary_2, num[1]), slice_plane
+            X, Y = np.meshgrid(xs, ys)
+            Ex, Ey = 0, 0
+            for charge in self.charges:
+                rx, ry, rz = charge.position
+                Xd, Yd, Zd = X - rx, Y - ry, zs - rz
+                r2 = Xd ** 2 + Yd ** 2 + Zd ** 2;
+                r2[r2 == 0] = np.inf
+                Ex += self.k * charge.charge * Xd / r2 ** 1.5
+                Ey += self.k * charge.charge * Yd / r2 ** 1.5
+            Exf, Eyf, Xf, Yf = Ex.ravel(), Ey.ravel(), X.ravel(), Y.ravel()
+            E_mag = (Exf ** 2 + Eyf ** 2) ** 0.5
+
+        if 'mag_lim' in kwargs:
+            mask = E_mag <= kwargs['mag_lim']
+        else:
+            mask = np.ones_like(E_mag)
+        E_mag *= mask
+        norm = plt.Normalize(E_mag.min(), E_mag.max())
+        cmap = kwargs.get('cmap', 'plasma')
+        try:
+            colors = getattr(plt.cm, cmap)(norm(E_mag))
+        except:
+            colors = plt.cm.plasma(norm(E_mag))
+
+        fig, ax = plt.subplots()
+
+        if 'length' in kwargs and type(kwargs['length']) in [int,float]:
+            s = E_mag.max()/kwargs['length']
+        else:
+            s = E_mag.max()
+        ax.quiver(Xf, Yf, Exf * mask, Eyf * mask, color=colors,scale = s)
+
+        sm = plt.cm.ScalarMappable(cmap=cmap,norm=norm);
+        sm.set_array(E_mag)
+        fig.colorbar(sm, ax=ax, shrink=0.7, label="|E| magnitude")
+        ax.set_aspect('equal')
+        plt.show()
+
